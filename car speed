@@ -35,7 +35,66 @@ RunService.Stepped:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- 2. CUSTOM MOBILE BUTTON CREATION
+-- 2. RAYFIELD UI SETUP (Speed & Keybind Configurator)
+----------------------------------------------------------------
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Vehicle Velocity Modifier",
+   LoadingTitle = "Loading Configuration Menu...",
+   LoadingSubtitle = "by Gemini",
+   ConfigurationSaving = {
+      Enabled = false
+   },
+   KeySystem = false
+})
+
+local Tab = Window:CreateTab("Settings", nil)
+
+-- Speed Input
+local Input = Tab:CreateInput({
+   Name = "Boost Intensity (Speed)",
+   PlaceholderText = "Type speed number here...",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      local numericValue = tonumber(Text)
+      if numericValue then
+          _G.BoostIntensity = numericValue
+      else
+          _G.BoostIntensity = 1000 
+      end
+   end,
+})
+
+-- Keybind Configuration
+local Keybind = Tab:CreateKeybind({
+   Name = "Boost Keybind",
+   CurrentKeybind = "E",
+   HoldToInteract = true,
+   Flag = "BoostKeybind",
+   Callback = function(KeybindState)
+      isBoosting = KeybindState
+   end,
+})
+
+----------------------------------------------------------------
+-- 3. KEYBOARD LISTENERS (FOR MANUAL HOLD SUPPORT)
+----------------------------------------------------------------
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == currentKeybind then
+        isBoosting = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.KeyCode == currentKeybind then
+        isBoosting = false
+    end
+end)
+
+----------------------------------------------------------------
+-- 4. CUSTOM MOBILE BUTTON
 ----------------------------------------------------------------
 if PlayerGui:FindFirstChild("CustomBoostGui") then
     PlayerGui.CustomBoostGui:Destroy()
@@ -45,8 +104,6 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CustomBoostGui"
 screenGui.ResetOnSpawn = false
 screenGui.DisplayOrder = 999999
--- Enabled by default, will be controlled by Rayfield Toggle
-screenGui.Enabled = true 
 screenGui.Parent = PlayerGui
 
 local boostButton = Instance.new("TextButton")
@@ -63,6 +120,63 @@ boostButton.Parent = screenGui
 
 local uiCorner = Instance.new("UICorner")
 uiCorner.CornerRadius = UDim.new(0.5, 0)
+uiCorner.Parent = boostButton
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(255, 255, 255)
+uiStroke.Thickness = 2
+uiStroke.Parent = boostButton
+
+-- Mobile Button Input
+boostButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isBoosting = true
+        boostButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+    end
+end)
+
+boostButton.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isBoosting = false
+        boostButton.BackgroundColor3 = Color3.fromRGB(0, 162, 255)
+    end
+end)
+
+-- Draggable Logic
+local dragging = false
+local dragInput, dragStart, startPos
+
+boostButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = boostButton.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+boostButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        boostButton.Position = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
 uiCorner.Parent = boostButton
 
 local uiStroke = Instance.new("UIStroke")
